@@ -13,9 +13,13 @@ return new class extends Migration
     {
         Schema::create('campaigns', function (Blueprint $table) {
             $table->id();
-            $table->string('name');
-            $table->string('product_type')->default('default'); // misal: kredit_motor
+            $table->string('campaign_name');
+            $table->string('product_type')->default('default');
+            $table->string('dialing_type')->default('predictive');
+            $table->string('created_by')->nullable(); // asumsi user bisa nullable
             $table->text('keterangan')->nullable();
+            $table->boolean('is_active')->default(true); // optional
+            $table->integer('retry_count')->default(0);  // optional
             $table->timestamps();
         });
     }

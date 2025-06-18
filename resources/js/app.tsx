@@ -5,10 +5,16 @@ import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createRoot } from 'react-dom/client';
 import { initializeTheme } from './hooks/use-appearance';
 import { configureEcho } from '@laravel/echo-react';
+import axios from 'axios';
+
+
+
+axios.defaults.baseURL = 'http://127.0.0.1:8000';
+axios.defaults.withCredentials = false;
 
 configureEcho({
     broadcaster: 'pusher',
-    key: 'app-key', // harus sama seperti yang kamu set waktu docker run
+    key: import.meta.env.VITE_PUSHER_APP_KEY,
     wsHost: '127.0.0.1',
     wsPort: 6001,
     forceTLS: false,
@@ -24,7 +30,7 @@ createInertiaApp({
     setup({ el, App, props }) {
         const root = createRoot(el);
 
-        root.render(<App {...props} />);
+        root.render( <App {...props} /> );
     },
     progress: {
         color: '#4B5563',

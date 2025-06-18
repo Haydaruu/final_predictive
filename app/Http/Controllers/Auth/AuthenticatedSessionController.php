@@ -8,6 +8,8 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Log;
+use App\Enums\UseRole;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -33,8 +35,24 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
-        return redirect()->intended(route('dashboard', absolute: false));
+        $user = Auth::user();
+
+        $role = $user->role instanceof \BackedEnum ? $user->role->value : $user->role;
+
+        Log::info('🧭 Redirecting user with role:', ['role' => $role]);
+
+    switch ($role) {
+        case 'SuperAdmin':
+            return redirect()->route('SuperAdmin');
+        case 'Admin':
+            return redirect()->route('Admin');
+        case 'Agent':
+            return redirect()->route('dashboard');
+        default:
+            Auth::logout();
+            return redirect('/')->withErrors(['role' => 'Role tidak dikenali.']);
     }
+}
 
     /**
      * Destroy an authenticated session.

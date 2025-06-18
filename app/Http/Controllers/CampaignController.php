@@ -4,65 +4,84 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use App\Imports\AkulakuImport;
+use App\Jobs\ProcessAkulakuImport;
 use App\Models\Campaign;
-use App\Models\Nasabah;
-use Illuminate\support\Facades\DB;
+use App\Models\Nasbah;
+use Illuminate\Support\Facades\Storage;
+use Maatwebsite\Excel\Facades\Excel;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Log;
 
 class CampaignController extends Controller
 {
     public function index()
     {
-        $campaigns = Campaign::withCount('nasabahs')->paginate(10);
+        $campaigns = Campaign::withCount('nasbahs')->paginate(10);
 
-        return Inertia::render('Campaign/index', [
+        return Inertia::render('campaign/index', [
             'campaigns' => $campaigns,
         ]);
     }
 
     public function showUploadForm()
     {
-        return Inertia::render('Campaign/upload');
+        return Inertia::render('campaign/upload');
     }
 
     public function upload(Request $request)
     {
-        $request->validate([
-            'campaign_name' => 'required|string',
-            'product_type' => 'required|string',
-            'file' => 'required|file|mimes:csv,txt,xlsx,xls',
-        ]);
+    $request->validate([
+        'campaign_name' => 'required|string',
+        'product_type' => 'required|string',
+        'file' => 'required|file',
+    ]);
 
-        $file = $request->file('file');
-        $rows = Excel::toArray([], $file)[0];
+    $path = $request->file('file')->store('campaign_files');
 
-        $headers = array_map(fn($h) => Str::slug(strtolower($h), '_'), $rows[0]);
+    $campaign = Campaign::create([
+        'campaign_name' => $request->campaign_name,
+        'product_type' => $request->product_type,
+        'dialing_type' => 'predictive',
+        'created_by' => auth()->user()->name,
+        'file_path' => $path,
+    ]);
 
-        $campaign = Campaign::create([
-            'name' => $request->campaign_name,
-            'product_type' => $request->product_type,
-            'dialing_type' => 'predictive',
-            'created_by' => auth()->user()->name,
-        ]);
+    
 
-        foreach (array_slice($rows, 1) as $row) {
-            $data = array_combine($headers, $row);
+     Log::info('Upload Debug', [
+    'mime' => $request->file('file')->getMimeType(),
+    'ext' => $request->file('file')->getClientOriginalExtension(),
+]);
 
-            $nasabah = new Nasabah();
-            $nasabah->campaign_id = $campaign->id;
-            $nasabah->name = $data['nama'] ?? 'Unknown';
-            $nasabah->phone = preg_replace('/[^0-9]/', '', $data['telepon'] ?? '');
-            $nasabah->data_json = json_encode($data);
-            $nasabah->is_called = false;
-            $nasabah->save();
-        }
+    Log::info('✅ Campaign file stored', ['path' => $path]);
 
-        return redirect()->route('campaign.index')->with('success', 'Campaign berhasil di-upload.');
+    // Pastikan file-nya benar-benar tersimpan
+    if (!Storage::exists($path)) {
+        Log::error('❌ FILE BELUM ADA DI STORAGE!', ['path' => $path]);
     }
+
+
+    switch ($request->product_type) {
+        case 'akulaku':  
+            ProcessAkulakuImport::dispatch($path, $campaign->id);
+            break;
+        case 'shopee':
+            Excel::import(new ShopeeImport($campaign->id), $request->file('file'));
+            break;
+        default:
+            return redirect()->back()->withErrors(['product_type' => 'Tipe produk tidak dikenali.']);
+    }
+
+        return back()->with('success', 'Campaign uploaded successfully.');
+}
+
+
 
     public function routeToAgent()
     {
-        $nasabah = Nasabah::where('is_called', false)->first();
+        $nasabah = Nasbah::where('is_called', false)->first();
 
         if (!$nasabah) {
              return response()->json(['message' => 'Tidak ada nasabah tersedia'], 404);
