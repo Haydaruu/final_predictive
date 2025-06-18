@@ -6,7 +6,6 @@ use App\Events\TetsEvent;
 use App\Http\Controllers\RoleDashboardController;
 use App\Http\Middleware\RoleMiddleware;
 use App\Http\Controllers\CampaignController;
-use App\Http\Controllers\PredictiveDialingController;
 
 Route::get('/', function () {
     return Inertia::render('welcome');
@@ -23,9 +22,6 @@ Route::middleware(['auth', 'verified', 'role:SuperAdmin'])->group(function () {
   Route::get('/campaign',[CampaignController::class,'index'])->name('campaign');
   Route::get('/campaign/upload',[CampaignController::class,'showUploadForm'])->name('campaign.upload.form');
   Route::post('/upload', [CampaignController::class, 'upload'])->name('campaign.upload');
-  
-  // Predictive Dialing Routes
-  Route::get('/predictive', [PredictiveDialingController::class, 'dashboard'])->name('predictive.dashboard');
 });
 
 Route::get('/log-test', function () {
